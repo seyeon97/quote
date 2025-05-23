@@ -1,0 +1,393 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>포레테 견적서</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        #quote-form {
+            max-width: 640px;
+            margin: 40px auto;
+            background: #fff;
+            padding: 32px;
+            color: black;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+        }
+
+        #quote-form h2 {
+            font-size: 28px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        #quote-form label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        #quote-form input[type="text"],
+        #quote-form input[type="number"],
+        #quote-form select {
+            width: 100%;
+            margin-bottom: 16px;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        #quote-form button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            background: #009c86;
+            color: white;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+
+        #quote-form button[type="submit"]:hover {
+            background: #007a6b;
+        }
+
+        #warning-message {
+            display: none;
+            color: red;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        @keyframes blink {
+            0% { background-color: #ffe6e6; }
+            50% { background-color: #fff; }
+            100% { background-color: #ffe6e6; }
+        }
+
+        input.invalid {
+            border-color: red !important;
+            animation: blink 0.4s ease-in-out 3;
+        }
+
+        #quote-output {
+            display: none;
+            font-family: Arial, sans-serif;
+            max-width: 720px;
+            margin: 40px auto;
+            border: 1px solid #ddd;
+            padding: 32px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+        }
+
+        #quote-output h2 {
+            text-align: center;
+            font-size: 26px;
+            margin-bottom: 24px;
+        }
+
+        #quote-output p {
+            margin-bottom: 8px;
+        }
+
+        #quote-output strong {
+            font-weight: bold;
+        }
+
+        #quote-output hr {
+            margin: 20px 0;
+            border: 0;
+            border-top: 1px solid #ccc;
+        }
+
+        #quote-output table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        #quote-output th,
+        #quote-output td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        #quote-output thead tr {
+            background: #f9f9f9;
+        }
+
+        #quote-output td:nth-child(2),
+        #quote-output td:nth-child(3),
+        #quote-output td:nth-child(4) {
+            text-align: right;
+        }
+
+        #quote-output #print-button,
+        #quote-output #download-pdf-button {
+            width: 100%;
+            padding: 14px;
+            background: #009c86;
+            color: white;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
+            margin-top: 10px;
+        }
+
+        #quote-output #print-button:hover,
+        #quote-output #download-pdf-button:hover {
+            background: #007a6b;
+        }
+
+        #quote-output #download-pdf-button {
+            background: #007bff;
+        }
+
+        #quote-output #download-pdf-button:hover {
+            background: #0056b3;
+        }
+
+        @media print {
+            html, body {
+                background: white;
+                margin: 0;
+                padding: 0;
+                height: auto;
+                overflow: visible;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            body > *:not(#quote-output) {
+                display: none !important;
+                visibility: hidden !important;
+            }
+
+            #quote-output {
+                display: block !important;
+                visibility: visible !important;
+                position: relative;
+                width: 100%;
+                max-width: 680px;
+                margin: 0 auto;
+                padding: 24px;
+                box-sizing: border-box;
+                background: white !important;
+                border: none !important;
+                box-shadow: none !important;
+                color: black !important;
+                font-size: 14px !important;
+                line-height: 1.4 !important;
+                font-family: Arial, sans-serif !important;
+            }
+
+            #quote-output * {
+                visibility: visible !important;
+                color: black !important;
+            }
+
+            #print-button, #download-pdf-button {
+                display: none !important;
+            }
+
+            @page {
+                margin: 10mm;
+                size: A4 portrait;
+            }
+        }
+    </style>
+</head>
+<body>
+<form id="quote-form">
+  <h2>포레테 견적서</h2>
+  <label for="company">회사명</label>
+  <input type="text" name="company" id="company" required>
+  <label for="manager">담당자 이름</label>
+  <input type="text" name="manager" id="manager" required>
+  <label for="class-kind">클래스 종류</label>
+  <select name="classKind" id="class-kind" required>
+    <option value="핸드드립 클래스">핸드드립 클래스</option>
+    <option value="드립백 클래스">드립백 클래스</option>
+  </select>
+  <label for="class-type">클래스 인원</label>
+  <select name="type" id="class-type" required>
+    <option value="15인 이하">15인 이하</option>
+    <option value="16~40인">16인 이상 ~ 40인 이하</option>
+    <option value="41~100인">41인 이상 ~ 100인 이하</option>
+  </select>
+  <label for="quantity-input">인원 수</label>
+  <input type="number" name="quantity" id="quantity-input" required min="1">
+  <p id="warning-message">⚠ 클래스 유형에 맞는 인원 수를 입력해 주세요.</p>
+  <button type="submit" id="submit-button">견적서 보기</button>
+</form>
+
+<div id="quote-output">
+  <h2>포레테 견적서</h2>
+  <p><strong>견적일자:</strong> <span id="quote-date"></span></p>
+  <p><strong>수신:</strong> <span id="output-company"></span> 귀하</p>
+  <hr>
+  <h3>공급자 정보</h3>
+  <p><strong>상호:</strong> 포레테</p>
+  <p><strong>대표자:</strong> 이세연</p>
+  <p><strong>사업자등록번호:</strong> 417-14-07644</p>
+  <p><strong>주소:</strong> 서울시 강동구 성안로 39, 1층 103호</p>
+  <p><strong>이메일:</strong> ceo@poleta3d.com</p>
+  <hr>
+  <table>
+    <thead>
+      <tr>
+        <th>항목</th>
+        <th>단가 (원)</th>
+        <th>수량</th>
+        <th>금액 (원)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td id="output-type"></td>
+        <td id="output-unit"></td>
+        <td id="output-quantity"></td>
+        <td id="output-total"></td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="margin-top: 20px; font-size: 18px;"><strong>총 합계(VAT 포함):</strong> <span id="output-total-sum"></span> 원</p>
+  <hr>
+  <p>※ 전자세금계산서 발행 가능</p>
+  <p>※ 당일 현장 카드결제 가능</p>
+  <button onclick="printPage()" id="print-button">인쇄 또는 PDF로 저장</button>
+  <button onclick="downloadQuotePdf()" id="download-pdf-button">견적서 PDF 다운로드</button>
+</div>
+
+<script>
+document.getElementById("quote-form").addEventListener("submit", function(e) {
+  e.preventDefault();
+  const form = e.target;
+  const company = form.company.value;
+  const manager = form.manager.value;
+  const classKind = form.classKind.value;
+  const type = form.type.value;
+  const quantityInput = document.getElementById("quantity-input");
+  const quantity = parseInt(quantityInput.value);
+  const warning = document.getElementById("warning-message");
+
+  let unitPrice = 0;
+  let minAllowed = 1;
+  let maxAllowed = Infinity;
+
+  if (type === "15인 이하") {
+    unitPrice = 50000;
+    maxAllowed = 15;
+  } else if (type === "16~40인") {
+    unitPrice = 40000;
+    minAllowed = 16;
+    maxAllowed = 40;
+  } else if (type === "41~100인") {
+    unitPrice = 30000;
+    minAllowed = 41;
+    maxAllowed = 100;
+  }
+
+  if (quantity < minAllowed || quantity > maxAllowed) {
+    quantityInput.classList.add("invalid");
+    warning.style.display = "block";
+    return;
+  } else {
+    quantityInput.classList.remove("invalid");
+    warning.style.display = "none";
+  }
+
+  const total = unitPrice * quantity;
+  const today = new Date().toISOString().split("T")[0];
+
+  document.getElementById("quote-date").textContent = today;
+  document.getElementById("output-company").textContent = company;
+  document.getElementById("output-type").textContent = `${classKind} (${type})`;
+  document.getElementById("output-unit").textContent = unitPrice.toLocaleString();
+  document.getElementById("output-quantity").textContent = quantity;
+  document.getElementById("output-total").textContent = total.toLocaleString();
+  document.getElementById("output-total-sum").textContent = total.toLocaleString();
+
+  document.getElementById("quote-output").style.display = "block";
+});
+
+function printPage() {
+  const element = document.getElementById("quote-output");
+  element.style.display = "block";
+  // 렌더링 확인 후 인쇄
+  setTimeout(() => {
+    window.print();
+  }, 100);
+}
+
+function downloadQuotePdf() {
+  const element = document.getElementById("quote-output");
+  element.style.display = "block";
+  // 렌더링 확인 후 인쇄 및 안내
+  setTimeout(() => {
+    alert('인쇄 창이 열립니다. "PDF로 저장" 또는 "Microsoft Print to PDF"를 선택해 저장해 주세요.\n\n설정 방법:\n- 크롬: "추가 설정" > "배경 그래픽" 체크\n- 파이어폭스: "PDF로 저장" 옵션 선택\n- 엣지: "Microsoft Print to PDF" 사용');
+    window.print();
+  }, 100);
+}
+</script>
+</body>
+</html>
