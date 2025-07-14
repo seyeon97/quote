@@ -271,8 +271,8 @@
   <label for="class-type">클래스 인원</label>
   <select name="type" id="class-type" required>
     <option value="15인 이하">15인 이하</option>
-    <option value="16~40인">16인 이상 ~ 40인 이하</option>
-    <option value="41~100인">41인 이상 ~ 100인 이하</option>
+    <option value="16~40인">16인 이상 ~ 50인 이하</option>
+    <option value="41~100인">50인 이상</option>
   </select>
   <label for="quantity-input">인원 수</label>
   <input type="number" name="quantity" id="quantity-input" required min="1">
@@ -337,14 +337,14 @@ document.getElementById("quote-form").addEventListener("submit", function(e) {
   if (type === "15인 이하") {
     unitPrice = 50000;
     maxAllowed = 15;
-  } else if (type === "16~40인") {
-    unitPrice = 40000;
+  } else if (type === "16~50인") {
+    unitPrice = 45000;
     minAllowed = 16;
-    maxAllowed = 40;
-  } else if (type === "41~100인") {
-    unitPrice = 30000;
-    minAllowed = 41;
-    maxAllowed = 100;
+    maxAllowed = 50;
+  } else if (type === "51인 이상") {
+    unitPrice = 35000;
+    minAllowed = 51;
+    maxAllowed = 150;
   }
 
   if (quantity < minAllowed || quantity > maxAllowed) {
